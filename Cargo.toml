@@ -13,3 +13,9 @@ slotmap = { version = "1.0.7", features = ["serde"] }
 
 [lib]
 crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = "s"
+strip = true
+lto = true
+codegen-units = 1
