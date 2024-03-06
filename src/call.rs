@@ -1,30 +1,61 @@
-use std::rc::Rc;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use ocaml_interop::{OCaml, OCamlRuntime, ToOCaml};
-use serde::{Deserialize, Serialize};
-use slotmap::Key as SlotMapKey;
+use ocaml_interop::{internal::OCamlClosure, OCaml, OCamlRuntime, ToOCaml};
+use slotmap::{Key, KeyData};
 
-use crate::store::{get_value, store_value, Key};
+use crate::store::{get_value, store_value, FKey};
 
 /// Dynamic call argument type.
-#[derive(Serialize, Deserialize)]
-#[serde(untagged)]
 pub enum Val {
-    Token(Key),
+    Token(FKey),
     String(String),
 }
 
+impl From<&str> for Val {
+    fn from(s: &str) -> Self {
+        Val::String(s.to_string())
+    }
+}
+
+impl From<String> for Val {
+    fn from(s: String) -> Self {
+        Val::String(s)
+    }
+}
+
+impl From<FKey> for Val {
+    fn from(key: FKey) -> Self {
+        Val::Token(key)
+    }
+}
+
+fn find_function(name: &str) -> Result<OCamlClosure, String> {
+    thread_local! {
+        static MAP: RefCell<HashMap<String, OCamlClosure>> = RefCell::new(HashMap::new());
+    }
+
+    MAP.with_borrow_mut(|map| {
+        if let Some(func) = map.get(name) {
+            return Ok(*func);
+        }
+
+        let func =
+            OCamlClosure::named(name).ok_or_else(|| format!("Function {} not found", name))?;
+        map.insert(name.to_string(), func);
+        Ok(func)
+    })
+}
+
 /// Dynamic call function.
-pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<Key, String> {
-    let func = ocaml_interop::internal::OCamlClosure::named(name)
-        .ok_or_else(|| format!("Function {} not found", name))?;
+pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<FKey, String> {
+    let func = find_function(name)?;
 
     let mut ocaml_args = Vec::with_capacity(args.len());
     for arg in args {
         match arg {
             Val::Token(key) => {
-                let value = get_value(*key)
-                    .ok_or_else(|| format!("Invalid key {}", key.data().as_ffi()))?;
+                let value = get_value(KeyData::from_ffi(*key))
+                    .ok_or_else(|| format!("Invalid key {}", key))?;
                 ocaml_args.push(value.to_boxroot(cr));
             }
             Val::String(s) => ocaml_args.push(s.to_boxroot(cr)),
@@ -47,5 +78,5 @@ pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<Key, 
         func.call_n(cr, &mut args)
     };
     let result = result.root();
-    Ok(store_value(Rc::new(result)))
+    Ok(store_value(Rc::new(result)).data().as_ffi())
 }

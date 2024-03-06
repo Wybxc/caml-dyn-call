@@ -3,3 +3,5 @@
 *.cmi
 *.cmo
 *.cma
+*.cmx
+*.o
