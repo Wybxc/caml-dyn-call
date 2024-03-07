@@ -2,30 +2,23 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use eyre::{OptionExt, Result};
 use ocaml_interop::{internal::OCamlClosure, OCaml, OCamlRuntime, ToOCaml};
-use slotmap::{Key, KeyData};
 
-use crate::store::{get_value, store_value, FKey};
+use crate::store::Token;
 
 /// Dynamic call argument type.
-pub enum Val {
-    Token(FKey),
-    String(String),
+pub enum Val<'a> {
+    Token(&'a Token),
+    Str(&'a str),
 }
 
-impl From<&str> for Val {
-    fn from(s: &str) -> Self {
-        Val::String(s.to_string())
+impl<'a> From<&'a str> for Val<'a> {
+    fn from(s: &'a str) -> Self {
+        Val::Str(s)
     }
 }
 
-impl From<String> for Val {
-    fn from(s: String) -> Self {
-        Val::String(s)
-    }
-}
-
-impl From<FKey> for Val {
-    fn from(key: FKey) -> Self {
+impl<'a> From<&'a Token> for Val<'a> {
+    fn from(key: &'a Token) -> Self {
         Val::Token(key)
     }
 }
@@ -47,18 +40,17 @@ fn find_function(name: &str) -> Result<OCamlClosure> {
 }
 
 /// Dynamic call function.
-pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<FKey> {
+pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<Token> {
     let func = find_function(name)?;
 
     let mut ocaml_args = Vec::with_capacity(args.len());
     for arg in args {
         match arg {
             Val::Token(key) => {
-                let value = get_value(KeyData::from_ffi(*key))
-                    .ok_or_eyre(format!("Invalid key {}", key))?;
+                let value = key.get_value().ok_or_eyre(format!("Invalid key {}", key))?;
                 ocaml_args.push(value.to_boxroot(cr));
             }
-            Val::String(s) => ocaml_args.push(s.to_boxroot(cr)),
+            Val::Str(s) => ocaml_args.push(s.to_boxroot(cr)),
         }
     }
 
@@ -79,5 +71,5 @@ pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<FKey>
     };
     let result = result.root();
 
-    Ok(store_value(Rc::new(result)).data().as_ffi())
+    Ok(Token::store_value(Rc::new(result)))
 }
