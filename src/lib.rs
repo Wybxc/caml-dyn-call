@@ -12,7 +12,7 @@ thread_local! {
     static OCAML_RUNTIME: RefCell<OCamlRuntime> = RefCell::new(OCamlRuntime::init());
 }
 
-pub fn dyn_call(name: &str, args: Vec<Val>) -> Result<store::FKey, String> {
+pub fn caml_dyn_call(name: &str, args: Vec<Val>) -> Result<store::FKey, String> {
     OCAML_RUNTIME.with_borrow_mut(|cr| {
         let key = call::dyn_call(cr, name, &args)?;
         Ok(key)
@@ -48,4 +48,11 @@ pub fn init(prompt: &std::path::Path) -> Result<(), String> {
 
 ocaml! {
     fn eval(command: String);
+}
+
+#[macro_export]
+macro_rules! dyn_call {
+    ($name: literal, $($x:expr),*) => {
+        $crate::caml_dyn_call($name, vec![$($x.into()),*])
+    };
 }
