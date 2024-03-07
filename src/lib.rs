@@ -58,6 +58,9 @@ ocaml! {
 
 #[macro_export]
 macro_rules! dyn_call {
+    ($name: literal) => {
+        $crate::caml_dyn_call($name, vec![])
+    };
     ($name: literal, $($x:expr),*) => {
         $crate::caml_dyn_call($name, vec![$($x.into()),*])
     };

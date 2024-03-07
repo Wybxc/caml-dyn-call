@@ -86,7 +86,7 @@ fn link(ocaml_path: &str) -> std::io::Result<()> {
 
 fn main() -> std::io::Result<()> {
     let ocaml_files = ["src/eval.ml"];
-    let ocaml_packages = ["compiler-libs.toplevel"];
+    let ocaml_packages = ["compiler-libs.toplevel", "num"];
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let ocamlopt = std::env::var("OCAMLOPT").unwrap_or_else(|_| "ocamlopt".to_string());
