@@ -27,6 +27,12 @@ pub fn get_str(key: store::FKey) -> Result<String, String> {
     })
 }
 
+pub fn get_str_dispose(key: store::FKey) -> Result<String, String> {
+    let result = get_str(key);
+    dispose(key);
+    result
+}
+
 pub fn dispose(key: store::FKey) {
     store::remove_value(KeyData::from_ffi(key));
 }

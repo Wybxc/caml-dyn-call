@@ -10,6 +10,7 @@ fn compile(out_dir: PathBuf, ocaml_files: &[&str], ocaml_packages: &[&str]) -> s
         "ocamlc",
         "-o",
         object_file.to_str().unwrap(),
+        "-linkall",
         "-output-complete-obj",
         "-linkpkg",
     ];
