@@ -1,6 +1,7 @@
 use caml_dyn_call::*;
+use eyre::Result;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     init(std::path::Path::new("examples/stream.ml"))?;
 
     let stream = dyn_call!("stream_of_string", "Hello, World!")?;

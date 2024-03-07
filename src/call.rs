@@ -1,5 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use eyre::{OptionExt, Result};
 use ocaml_interop::{internal::OCamlClosure, OCaml, OCamlRuntime, ToOCaml};
 use slotmap::{Key, KeyData};
 
@@ -29,7 +30,7 @@ impl From<FKey> for Val {
     }
 }
 
-fn find_function(name: &str) -> Result<OCamlClosure, String> {
+fn find_function(name: &str) -> Result<OCamlClosure> {
     thread_local! {
         static MAP: RefCell<HashMap<String, OCamlClosure>> = RefCell::new(HashMap::new());
     }
@@ -39,15 +40,14 @@ fn find_function(name: &str) -> Result<OCamlClosure, String> {
             return Ok(*func);
         }
 
-        let func =
-            OCamlClosure::named(name).ok_or_else(|| format!("Function {} not found", name))?;
+        let func = OCamlClosure::named(name).ok_or_eyre(format!("Function {} not found", name))?;
         map.insert(name.to_string(), func);
         Ok(func)
     })
 }
 
 /// Dynamic call function.
-pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<FKey, String> {
+pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<FKey> {
     let func = find_function(name)?;
 
     let mut ocaml_args = Vec::with_capacity(args.len());
@@ -55,7 +55,7 @@ pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<FKey,
         match arg {
             Val::Token(key) => {
                 let value = get_value(KeyData::from_ffi(*key))
-                    .ok_or_else(|| format!("Invalid key {}", key))?;
+                    .ok_or_eyre(format!("Invalid key {}", key))?;
                 ocaml_args.push(value.to_boxroot(cr));
             }
             Val::String(s) => ocaml_args.push(s.to_boxroot(cr)),
@@ -78,5 +78,6 @@ pub fn dyn_call(cr: &mut OCamlRuntime, name: &str, args: &[Val]) -> Result<FKey,
         func.call_n(cr, &mut args)
     };
     let result = result.root();
+
     Ok(store_value(Rc::new(result)).data().as_ffi())
 }

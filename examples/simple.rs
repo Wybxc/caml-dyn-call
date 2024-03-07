@@ -1,9 +1,8 @@
-use std::path::Path;
-
 use caml_dyn_call::*;
+use eyre::Result;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    init(Path::new("examples/simple.ml"))?;
+fn main() -> Result<()> {
+    init(std::path::Path::new("examples/simple.ml"))?;
 
     let a = dyn_call!("parse_int", "123")?;
     let b = dyn_call!("parse_int", "456")?;
