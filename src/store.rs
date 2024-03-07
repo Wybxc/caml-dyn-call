@@ -9,6 +9,7 @@ use slotmap::{DefaultKey, Key as SlotMapKey, SlotMap};
 
 pub type Obj = Rc<BoxRoot<String>>;
 
+/// A token to an opaque OCaml value.
 pub struct Token(DefaultKey);
 
 impl Display for Token {

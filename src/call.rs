@@ -7,7 +7,9 @@ use crate::store::Token;
 
 /// Dynamic call argument type.
 pub enum Val<'a> {
+    /// A token to a value stored in the global store.
     Token(&'a Token),
+    /// A string.
     Str(&'a str),
 }
 
